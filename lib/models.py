@@ -1,6 +1,7 @@
 from sqlalchemy import ForeignKey, Column, Integer, String, MetaData
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref,sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+
 
 convention = {
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
@@ -15,15 +16,50 @@ class Company(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String())
     founding_year = Column(Integer())
-
+    freebies = relationship("Freebie", backref="company")
+    devs = relationship("Dev", secondary="freebies")
+    def give_freebie(self, dev, item_name, value):
+        freebie = Freebie(dev=dev, item_name=item_name, value=value)
+        self.freebies.append (freebie)
+        
+    
     def __repr__(self):
-        return f'<Company {self.name}>'
+        return f'<Company {self.name}>'  
+    
+    
+    @classmethod  
+    def oldest_company(cls):
+        return cls.query.order_by(cls.founding_year).first()
+
 
 class Dev(Base):
     __tablename__ = 'devs'
 
     id = Column(Integer(), primary_key=True)
     name= Column(String())
+    freebies = relationship("Freebie", backref="dev")
+    companies = relationship("Company", secondary="freebies")
 
     def __repr__(self):
         return f'<Dev {self.name}>'
+    def received_one(self, item_name):
+        return any(freebie.item_name == item_name for freebie in self.freebies)
+    def give_away(self, dev, freebie):
+        if freebie.dev == self:
+            freebie.dev = dev
+            
+    
+class Freebie(Base):
+    __tablename__ = 'freebies'
+    id = Column(Integer, primary_key=True)
+    item_name = Column(String(255))
+    value = Column(Integer)
+    dev_id = Column(Integer, ForeignKey('devs.id'))
+    company_id = Column(Integer, ForeignKey('companies.id'))
+
+    def print_details(self):
+        return f"{self.dev.name} owns a {self.item_name} from {self.company.name}"
+
+
+
+    
